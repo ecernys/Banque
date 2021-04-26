@@ -15,6 +15,7 @@ namespace Banque
         {
             this.Id = id;
             this.TransactionCount = transactionCount;
+            Accounts = new Dictionary<int, Account>();
         }
 
         public void AddAccount(Account account)

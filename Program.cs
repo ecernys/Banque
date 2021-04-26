@@ -47,6 +47,8 @@ namespace Banque
             utils.readClients(mngrPath);
             utils.readAccounts(acctPath);
             utils.readTransactions(trxnPath);
+            utils.ProcessClients();
+            utils.ProcessOperations();
             utils.writeTransactionsStatus(sttsTrxnPath);
             utils.writeOperationsStatus(sttsAcctPath);
             utils.writeStatistics(mtrlPath);
