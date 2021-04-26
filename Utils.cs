@@ -261,12 +261,9 @@ namespace Banque
                                .SelectMany(lookup => lookup
                                .Select(value => new { lookup.Key, value }))
                                .ToLookup(x => x.Key, x => x.value);
-            List<DateTime> sortedIndexes = mergedLookup.Select(g => g.Key).ToList();
-            sortedIndexes.Sort();
-            foreach (var index in sortedIndexes)
+            foreach (var group in mergedLookup.OrderBy(x => x.Key))
             {
-
-                foreach (var obj in mergedLookup[index])
+                foreach (var obj in group)
                 {
                     if (obj.GetType() == typeof(RawAccount))
                         ProcessAccount((RawAccount)obj);
