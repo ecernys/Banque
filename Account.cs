@@ -8,37 +8,61 @@ namespace Banque
 {
     class Account
     {
-        public const int MAX_WITHDRAWAL = 1000;
-        private int Id { get; set; }
-
+        public const int WITHDRAWAL_LIMIT = 2000;
+        public readonly TimeSpan TRANSACTION_LIMIT_PERIOD = new TimeSpan(7, 0, 0, 0);
+        public int Id { get; private set; }
         public double Balance { get; private set; }
+        private int _withdrawalLimit { get; set; }
+        public DateTime CreationDate { get; set; }
+        public DateTime? ClosureDate { get; set; }
+        public List<Transaction> Transactions { get; private set; }
+        public int ClientId { get; set; }
 
-        private int MaxWithdrawal { get; set; }
 
-        private List<Transaction> transactions { get; set; }
-
-        public Account(int id, double balance = 0)
+        public Account(int id, DateTime creationDate, int clientId, double balance = 0)
         {
             this.Id = id;
+            this.CreationDate = creationDate;
+            this.ClientId = clientId;
             this.Balance = balance;
-            this.MaxWithdrawal = MAX_WITHDRAWAL;
-            this.transactions = new List<Transaction>();
+            this.ClosureDate = null;
+            this._withdrawalLimit = WITHDRAWAL_LIMIT;
+            this.Transactions = new List<Transaction>();
         }
 
         /// <summary>
         /// Method to Execute deposit transaction and add Transaction to history
         /// </summary>
-        /// <param name="amount"> Amount of transaction </param>
         /// <param name="transaction"> 
         /// Transaction (all Levy transactions has duplicate Transfer Transaction in transmitter account)
         /// </param>
         /// <returns>Bool if succeeded </returns>
-        public bool Deposit(double amount, Transaction transaction)
+        public bool Deposit(Transaction transaction)
         {
-            if (amount > 0)
+            if (transaction.Date >= CreationDate
+                && (ClosureDate == null || transaction.Date < ClosureDate)
+                && transaction.Amount > 0)
             {
-                Balance += amount;
+                Balance += transaction.Amount;
                 AddTransaction(transaction);
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Method to Check if deposit transaction is valid
+        /// </summary>
+        /// <param name="transaction"> 
+        /// Transaction
+        /// </param>
+        /// <returns>Bool if transaction is valid </returns>
+        public bool CheckDeposit(Transaction transaction)
+        {
+            if (transaction.Date >= CreationDate
+                && (ClosureDate == null || transaction.Date < ClosureDate)
+                && transaction.Amount > 0)
+            {
                 return true;
             }
             return false;
@@ -47,19 +71,43 @@ namespace Banque
         /// <summary>
         /// Method to Execute withdrawal transaction and add Transaction to history
         /// </summary>
-        /// <param name="amount"> Amount of transaction </param>
         /// <param name="transaction">
         /// Transaction (all Transfer transactions has duplicate Levy Transaction in recipient account) 
         /// </param>
         /// <returns>Bool if succeeded</returns>
-        public bool Withdraw(double amount, Transaction transaction)
+        public bool Withdraw(Transaction transaction)
         {
-            if (amount > 0)
+            if (transaction.Date >= CreationDate
+                && (ClosureDate == null || transaction.Date < ClosureDate)
+                && transaction.Amount > 0)
             {
-                if (this.Balance - amount > 0 && NotExceedMax(amount))
+                if (this.Balance - transaction.Amount > 0
+                    && NotExceedMax(transaction.Amount, transaction.Date))
                 {
-                    this.Balance -= amount;
+                    this.Balance -= transaction.Amount;
                     AddTransaction(transaction);
+                    return true;
+                }
+            }
+            return false;
+        }        
+        
+        /// <summary>
+        /// Method to Check withdrawal transaction validity
+        /// </summary>
+        /// <param name="transaction">
+        /// Transaction
+        /// </param>
+        /// <returns>Bool if transaction is valid</returns>
+        public bool CheckWithdrawal(Transaction transaction)
+        {
+            if (transaction.Date >= CreationDate
+                && (ClosureDate == null || transaction.Date < ClosureDate)
+                && transaction.Amount > 0)
+            {
+                if (this.Balance - transaction.Amount > 0
+                    && NotExceedMax(transaction.Amount, transaction.Date))
+                {
                     return true;
                 }
             }
@@ -67,33 +115,32 @@ namespace Banque
         }
 
         /// <summary>
-        /// Check if last 10 Transactions do not exeed Maximum withdrawal limit
+        /// Check if withdrawal limit is not exceeded during withdrawal limit period
         /// </summary>
         /// <param name="amount">Current transaction amount </param>
-        /// <returns>Bool if do not exeeds maxWithdrawal</returns>
-        private bool NotExceedMax(double amount)
+        /// <param name="date"> Current transaction date </param>
+        /// <returns>Bool if do not exceeds withdrawal limit</returns>
+        private bool NotExceedMax(double amount, DateTime date)
         {
-            if (amount > MaxWithdrawal)
+            if (amount > _withdrawalLimit)
                 return false;
             double sum = 0;
-            int trCount = transactions.Count;
-            int startFrom = 0;
-            if (trCount > 10)
-                startFrom = trCount - 10;
-            for (int i = startFrom; i < trCount; i++)
+            foreach (var transaction in Transactions)
             {
-                if (transactions[i].Type == Transaction.TransactionType.Transfer
-                    || transactions[i].Type == Transaction.TransactionType.Withdrawal)
+                if ((transaction.Type == Transaction.TransactionType.Transfer
+                    || transaction.Type == Transaction.TransactionType.Withdrawal)
+                    && transaction.Date >= (date - TRANSACTION_LIMIT_PERIOD)
+                    && transaction.Date <= date)
                 {
-                    sum += transactions[i].Amount;
+                    sum += transaction.Amount;
                 }
             }
-            return sum + amount <= MaxWithdrawal;
+            return sum + amount <= _withdrawalLimit;
         }
 
         private void AddTransaction(Transaction transaction)
         {
-            this.transactions.Add(transaction);
+            this.Transactions.Add(transaction);
         }
     }
 }

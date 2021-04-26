@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,8 +10,20 @@ namespace Banque
 {
     class Utils
     {
+        // Raw data
+        List<RawAccount> rawAccounts = new List<RawAccount>();
+        List<RawTransaction> rawTransactions = new List<RawTransaction>();
+        List<RawClient> rawClients = new List<RawClient>();
+
+        //Objects 
+        Dictionary<int, Client> clients = new Dictionary<int, Client>();
         Dictionary<int, Account> accounts = new Dictionary<int, Account>();
         Dictionary<int, Transaction> transactions = new Dictionary<int, Transaction>();
+
+        //Statistics
+        int validTransactionCount = 0;
+        double validTransactionsSum = 0;
+        Dictionary<int, double> fees = new Dictionary<int, double>();
 
         /// <summary>
         /// Method to read Accounts from file
@@ -23,31 +37,77 @@ namespace Banque
             {
                 while (!sr.EndOfStream)
                 {
-                    int id;
-                    double balance = 0;
-                    string sBalance = "";
                     string[] data = sr.ReadLine().Split(';');
-                    if (data.Length > 0)
+                    string id = string.Empty;
+                    string date = string.Empty;
+                    string balance = string.Empty;
+                    string entry = string.Empty;
+                    string exit = string.Empty;
+
+                    switch (data.Length)
                     {
-                        string sId = data[0];
-                        if (data.Length > 1)
-                        {
-                            sBalance = data[1].Trim();
-                        }
-                        // Account id is valid and not already used
-                        if (int.TryParse(sId, out id) && !accounts.ContainsKey(id))
-                        {
-                            if (sBalance == "")
-                                accounts.Add(id, new Account(id));
-                            else if (double.TryParse(
-                                        sBalance,
-                                        //System.Globalization.NumberStyles.AllowDecimalPoint,
-                                        //System.Globalization.NumberFormatInfo.InvariantInfo,
-                                        out balance)
-                                    && balance >= 0)
-                                accounts.Add(id, new Account(id, balance));
-                        }
+                        case 0:
+                            break;
+                        case 1:
+                            id = data[0].Trim();
+                            break;
+                        case 2:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            break;
+                        case 3:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            balance = data[2].Trim();
+                            break;
+                        case 4:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            balance = data[2].Trim();
+                            entry = data[3].Trim();
+                            break;
+                        default:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            balance = data[2].Trim();
+                            entry = data[3].Trim();
+                            exit = data[4].Trim();
+                            break;
                     }
+                    rawAccounts.Add(new RawAccount(id, date, balance, entry, exit));
+                }
+            }
+        }
+
+        public void readClients(string clntPath)
+        {
+            using (StreamReader sr = new StreamReader(clntPath))
+            {
+                while (!sr.EndOfStream)
+                {
+                    string[] data = sr.ReadLine().Split(';');
+                    string id = string.Empty;
+                    string type = string.Empty;
+                    string transactionCount = string.Empty;
+
+                    switch (data.Length)
+                    {
+                        case 0:
+                            break;
+                        case 1:
+                            id = data[0].Trim();
+                            break;
+                        case 2:
+                            id = data[0].Trim();
+                            type = data[1].Trim();
+                            break;
+                        default:
+                            id = data[0].Trim();
+                            type = data[1].Trim();
+                            transactionCount = data[2].Trim();
+                            break;
+                    }
+                    rawClients.Add(new RawClient(id, type, transactionCount));
                 }
             }
         }
@@ -62,71 +122,47 @@ namespace Banque
         {
             using (StreamReader sr = new StreamReader(trxnPath))
             {
-                int invalidId = 0;
                 while (!sr.EndOfStream)
                 {
                     string rawData = sr.ReadLine();
                     string[] data = rawData.Split(';');
-                    string sId = data[0];
-                    string sAmount = data[1];
-                    string sTransmitter = data[2];
-                    string sRecipient = data[3];
-                    int id;
-                    double amount;
-                    int transmitter;
-                    int recipient;
-                    Transaction transaction;
-                    // Transaction data is valid and id is not already used
-                    if (int.TryParse(sId, out id) &&
-                        double.TryParse(sAmount, out amount) &&
-                        int.TryParse(sTransmitter, out transmitter) &&
-                        int.TryParse(sRecipient, out recipient) &&
-                        !transactions.ContainsKey(id))
-                    {
-                        transaction = new Transaction(
-                                Transaction.TransactionType.Transfer,
-                                Transaction.TransactionStatus.OK,
-                                sId,
-                                "",
-                                id,
-                                amount,
-                                transmitter,
-                                recipient);
+                    string id = string.Empty;
+                    string date = string.Empty;
+                    string amount = string.Empty;
+                    string transmitter = string.Empty;
+                    string receiver = string.Empty;
 
-                        if (transmitter == 0 && recipient != 0)
-                        {
-                            transaction.Type = Transaction.TransactionType.Deposition;
-                        }
-                        else if (recipient == 0 && transmitter != 0)
-                        {
-                            transaction.Type = Transaction.TransactionType.Withdrawal;
-                        }
-                        else if (recipient == 0 && transmitter == 0)
-                            transaction.Status = Transaction.TransactionStatus.KO;
-                        transactions.Add(id, transaction);
-
-                    }
-                    // At least transaction id is valid and id is not already used
-                    else if (int.TryParse(sId, out id) && !transactions.ContainsKey(id))
+                    switch (data.Length)
                     {
-                        transaction = new Transaction(
-                            Transaction.TransactionType.Transfer,
-                            Transaction.TransactionStatus.KO,
-                            sId,
-                            rawData,
-                            id);
-                        transactions.Add(id, transaction);
+                        case 0:
+                            break;
+                        case 1:
+                            id = data[0].Trim();
+                            break;
+                        case 2:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            break;
+                        case 3:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            amount = data[2].Trim();
+                            break;
+                        case 4:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            amount = data[2].Trim();
+                            transmitter = data[3].Trim();
+                            break;
+                        default:
+                            id = data[0].Trim();
+                            date = data[1].Trim();
+                            amount = data[2].Trim();
+                            transmitter = data[3].Trim();
+                            receiver = data[4].Trim();
+                            break;
                     }
-                    // Transaction id is invalid or already used
-                    else
-                    {
-                        transaction = new Transaction(
-                            Transaction.TransactionType.Transfer,
-                            Transaction.TransactionStatus.KO,
-                            sId,
-                            rawData);
-                        transactions.Add(--invalidId, transaction);
-                    }
+                    rawTransactions.Add(new RawTransaction(id, date, amount, transmitter, receiver));
                 }
             }
         }
@@ -135,112 +171,266 @@ namespace Banque
         /// Method to write Status of Transactions to file
         /// </summary>
         /// <param name="sttsTrxnPath">
-        /// Path of output Status of operation file
+        /// Path of output Status of transaction file
         /// </param>
         public void writeTransactionsStatus(string sttsTrxnPath)
         {
             using (StreamWriter sw = new StreamWriter(sttsTrxnPath))
             {
-                TryTransactions();
-                foreach (var t in transactions)
+                ProcessTransactions();
+                foreach (var rawTransaction in rawTransactions)
                 {
-                    if (t.Key > 0)
-                        sw.WriteLine($"{t.Key};{t.Value.Status}");
-                    else
-                        sw.WriteLine($"{t.Value.OriginalId};{t.Value.Status}");
+                    sw.WriteLine($"{rawTransaction.Id};{rawTransaction.Status}");
                 }
             };
         }
 
         /// <summary>
-        /// Method to execute transaction and return status
+        /// Method to write Status of Accounts to file
         /// </summary>
-        private void TryTransactions()
+        /// <param name="sttsAcctPath">
+        /// Path of output Status of operation file
+        /// </param>
+        public void writeOperationsStatus(string sttsAcctPath)
         {
-            Console.Write("     ");
-            foreach (var account in accounts)
+            using (StreamWriter sw = new StreamWriter(sttsAcctPath))
             {
-                Console.Write($"{account.Value.Balance.ToString("F")} ");
-            }
-            Console.WriteLine();
-
-            foreach (var t in transactions)
-            {
-                if (t.Value.Status == Transaction.TransactionStatus.OK)
+                ProcessClients();
+                ProcessAccounts();
+                foreach (var rawAccount in rawAccounts)
                 {
-                    if (t.Value.Type == Transaction.TransactionType.Deposition)
-                    {
-                        if (accounts.ContainsKey(t.Value.Recipient))
-                        {
-                            if (accounts[t.Value.Recipient].Deposit(t.Value.Amount, t.Value))
-                                t.Value.Status = Transaction.TransactionStatus.OK;
-                            else
-                                t.Value.Status = Transaction.TransactionStatus.KO;
-                        }
-                        else
-                            t.Value.Status = Transaction.TransactionStatus.KO;
-
-                    }
-                    if (t.Value.Type == Transaction.TransactionType.Withdrawal)
-                    {
-                        if (accounts.ContainsKey(t.Value.Transmitter))
-                        {
-                            if (accounts[t.Value.Transmitter].Withdraw(t.Value.Amount, t.Value))
-                                t.Value.Status = Transaction.TransactionStatus.OK;
-                            else
-                                t.Value.Status = Transaction.TransactionStatus.KO;
-                        }
-                        else
-                            t.Value.Status = Transaction.TransactionStatus.KO;
-                    }
-                    if (t.Value.Type == Transaction.TransactionType.Transfer)
-                    {
-                        if (accounts.ContainsKey(t.Value.Transmitter) &&
-                            accounts.ContainsKey(t.Value.Recipient) &&
-                            t.Value.Recipient != t.Value.Transmitter)
-                        {
-                            if (t.Value.Amount > 0 && accounts[t.Value.Transmitter].Withdraw(t.Value.Amount, t.Value))
-                            {
-                                Transaction transaction = new Transaction(
-                                    Transaction.TransactionType.Levy,
-                                    Transaction.TransactionStatus.OK,
-                                    t.Value.OriginalId,
-                                    "",
-                                    t.Value.Id,
-                                    t.Value.Amount,
-                                    t.Value.Recipient,
-                                    t.Value.Transmitter);
-                                accounts[t.Value.Recipient].Deposit(t.Value.Amount, transaction);
-                                t.Value.Status = Transaction.TransactionStatus.OK;
-                            }
-                            else
-                                t.Value.Status = Transaction.TransactionStatus.KO;
-                        }
-                        else
-                            t.Value.Status = Transaction.TransactionStatus.KO;
-                    }
+                    sw.WriteLine($"{rawAccount.Id};{rawAccount.Status}");
                 }
-                if (t.Key > 0)
+            };
+        }
+
+        /// <summary>
+        /// Method to write Account statistics
+        /// </summary>
+        /// <param name="mtrlPath">
+        /// Path of statistics output file
+        /// </param>
+        public void writeStatistics(string mtrlPath)
+        {
+            using (StreamWriter sw = new StreamWriter(mtrlPath, true))
+            {
+                sw.WriteLine("Statistiques :");
+                sw.WriteLine($"Nombre de comptes : {accounts.Count}");
+                sw.WriteLine($"Nombre de transactions : {rawTransactions.Count}");
+                sw.WriteLine($"Nombre de réussites : {validTransactionCount}");
+                sw.WriteLine($"Nombre d'échecs : {rawTransactions.Count - rawTransactions.Count}");
+                sw.WriteLine($"Montant total des réussites : {validTransactionsSum} euros");
+                sw.WriteLine("");
+                sw.WriteLine("Frais de gestions :");
+                foreach (var fee in fees)
                 {
-                    StringBuilder sb = new StringBuilder();
-                    sb.Append($"{t.Key} {t.Value.Status} ");
-                    foreach (var account in accounts)
+                    sw.WriteLine($"{fee.Key} : {fee.Value} euros");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Process raw client data into objects
+        /// </summary>
+        public void ProcessClients()
+        {
+            foreach (var rawClient in rawClients)
+            {
+                int id;
+                int transactionCount;
+                if (int.TryParse(rawClient.Id, out id)
+                    && int.TryParse(rawClient.TransactionCount, out transactionCount)
+                    && !clients.ContainsKey(id))
+                {
+                    if (rawClient.Type == "Particulier")
                     {
-                        sb.Append($"{account.Value.Balance.ToString("F")} ");
+                        clients.Add(id, new Person(id, transactionCount));
+                        rawClient.Status = Status.OK;
                     }
-                    Console.WriteLine(sb.ToString());
+                    else if (rawClient.Type == "Entreprise")
+                    {
+                        clients.Add(id, new Company(id, transactionCount));
+                        rawClient.Status = Status.OK;
+                    }
+                    else
+                        rawClient.Status = Status.KO;
                 }
                 else
-                {
-                    StringBuilder sb = new StringBuilder();
-                    sb.Append($"{t.Value.OriginalId} {t.Value.Status} ");
-                    foreach (var account in accounts)
-                    {
-                        sb.Append($"{account.Value.Balance.ToString("F")} ");
-                    }
-                    Console.WriteLine(sb.ToString());
-                }
+                    rawClient.Status = Status.KO;
             }
         }
+        /// <summary>
+        /// Process raw account data into objects
+        /// </summary>
+        public void ProcessAccounts()
+        {
+            foreach (var rawAccount in rawAccounts)
+            {
+                int id;
+                int entry;
+                int exit;
+                DateTime date;
+                double balance = 0;
+
+                //Check Id and Date validity 
+                if (int.TryParse(rawAccount.Id, out id)
+                    && DateTime.TryParseExact(
+                            rawAccount.Date,
+                            @"dd/MM/yyyy",
+                            CultureInfo.InvariantCulture.DateTimeFormat,
+                            DateTimeStyles.AllowWhiteSpaces,
+                            out date))
+                {
+                    // Create account
+                    if (int.TryParse(rawAccount.Entry, out entry)
+                        && rawAccount.Exit == string.Empty
+                        && clients.ContainsKey(entry)
+                        && int.TryParse(rawAccount.Id, out id)
+                        && !accounts.ContainsKey(id))
+                    {
+                        if (rawAccount.Balance == string.Empty
+                            || (double.TryParse(rawAccount.Balance, out balance)
+                                && balance >= 0))
+                        {
+                            Account account = new Account(id, date, entry, balance);
+                            clients[entry].AddAccount(account);
+                            accounts.Add(account.Id, account);
+                            rawAccount.Status = Status.OK;
+                        }
+                    }
+
+                    // Close account
+                    else if (int.TryParse(rawAccount.Exit, out exit)
+                        && rawAccount.Entry == string.Empty
+                        && clients.ContainsKey(exit)
+                        && int.TryParse(rawAccount.Id, out id)
+                        && clients[exit].Accounts.ContainsKey(id)
+                        && clients[exit].Accounts[id].ClosureDate == null)
+                    {
+                        clients[exit].Accounts[id].ClosureDate = date;
+                        rawAccount.Status = Status.OK;
+                    }
+
+                    // Transfer Account
+                    else if (int.TryParse(rawAccount.Exit, out exit)
+                        && int.TryParse(rawAccount.Entry, out entry)
+                        && clients.ContainsKey(exit)
+                        && clients.ContainsKey(entry)
+                        && int.TryParse(rawAccount.Id, out id)
+                        && clients[exit].Accounts.ContainsKey(id)
+                        && clients[exit].Accounts[id].ClosureDate == null)
+                    {
+                        Account account = clients[exit].Accounts[id];
+                        account.ClientId = entry;
+                        clients[exit].Accounts.Remove(id);
+                        clients[entry].Accounts.Add(id, account);
+                        rawAccount.Status = Status.OK;
+                    }
+                    else
+                        rawAccount.Status = Status.KO;
+                }
+                else
+                    rawAccount.Status = Status.KO;
+            }
+        }
+        /// <summary>
+        /// Process raw transaction data into objects
+        /// </summary>
+        public void ProcessTransactions()
+        {
+            foreach (var rawTransaction in rawTransactions)
+            {
+                int id;
+                int transmitter;
+                int receiver;
+                DateTime date;
+                double amount;
+
+                if (int.TryParse(rawTransaction.Id, out id)
+                    && !transactions.ContainsKey(id)
+                    && DateTime.TryParseExact(
+                            rawTransaction.Date,
+                            @"dd/MM/yyyy",
+                            CultureInfo.InvariantCulture.DateTimeFormat,
+                            DateTimeStyles.AllowWhiteSpaces,
+                            out date)
+                    && double.TryParse(rawTransaction.Amount, out amount)
+                    && int.TryParse(rawTransaction.Transmitter, out transmitter)
+                    && int.TryParse(rawTransaction.Receiver, out receiver))
+                {
+                    Transaction transaction = new Transaction(
+                            Transaction.TransactionType.Transfer,
+                            id,
+                            date,
+                            amount,
+                            transmitter,
+                            receiver);
+
+                    transactions.Add(id, transaction);
+                    // Deposition
+                    if (transmitter == 0 && receiver != 0
+                        && accounts.ContainsKey(receiver)
+                        && accounts[receiver].Deposit(transaction))
+                    {
+                        transaction.Type = Transaction.TransactionType.Deposition;
+                        rawTransaction.Status = Status.OK;
+                        validTransactionCount++;
+                        validTransactionsSum += amount;
+                        fees.Add(id, 0);
+                    }
+                    //Withdrawal
+                    else if (receiver == 0 && transmitter != 0
+                             && accounts.ContainsKey(transmitter)
+                             && accounts[transmitter].Withdraw(transaction))
+                    {
+                        transaction.Type = Transaction.TransactionType.Withdrawal;
+                        rawTransaction.Status = Status.OK;
+                        validTransactionCount++;
+                        validTransactionsSum += amount;
+                        fees.Add(id, 0);
+                    }
+                    // Transfer
+                    else if (receiver != transmitter
+                             && accounts[receiver].CheckDeposit(transaction)
+                             && accounts[transmitter].CheckWithdrawal(transaction))
+                    {
+                        double fee = 0;
+                        validTransactionsSum += amount;
+                        // if transaction is external deduct transaction fee
+                        if (accounts[transmitter].ClientId != accounts[receiver].ClientId
+                            && clients[accounts[transmitter].ClientId].GetType() == typeof(Person))
+                        {
+                            fee = amount * ((Person)clients[accounts[transmitter].ClientId]).transactionFee;
+                            amount -= fee;
+                        }
+                        if (accounts[transmitter].ClientId != accounts[receiver].ClientId
+                            && clients[accounts[transmitter].ClientId].GetType() == typeof(Company))
+                        {
+                            fee = ((Person)clients[accounts[transmitter].ClientId]).transactionFee;
+                            amount -= fee;
+                        }
+
+                        accounts[transmitter].Withdraw(transaction);
+                        accounts[receiver].Deposit(
+                            new Transaction(
+                                Transaction.TransactionType.Levy,
+                                id,
+                                date,
+                                amount,
+                                receiver,
+                                transmitter));
+                        rawTransaction.Status = Status.OK;
+                        validTransactionCount++;
+                        fees.Add(id, fee);
+
+                    }
+                    else
+                        rawTransaction.Status = Status.KO;
+                }
+                else
+                    rawTransaction.Status = Status.KO;
+            }
+        }
+
     }
 }

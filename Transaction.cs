@@ -16,39 +16,27 @@ namespace Banque
             Levy
         }
 
-        public enum TransactionStatus
-        {
-            OK,
-            KO
-        }
-
         public TransactionType Type { get; set; }
         public int Id { get; private set; }
+        public DateTime Date { get; set; }
         public double Amount { get; private set; }
         public int Transmitter { get; private set; }
-        public int Recipient { get; private set; }
-        public TransactionStatus Status { get; set; }
-        public string InputData { get; set; }
-        public string OriginalId { get; private set; }
+        public int Receiver { get; private set; }
 
         public Transaction(
             TransactionType type,
-            TransactionStatus status,
-            string originalId,
-            string inputData,
-            int id = 0,
-            double amount = 0,
-            int transmitter = 0,
-            int recipient = 0)
+            int id,
+            DateTime date,
+            double amount,
+            int transmitter,
+            int recipient)
         {
             this.Type = type;
-            this.Status = status;
-            this.OriginalId = originalId;
-            this.InputData = inputData;
             this.Id = id;
+            this.Date = date;
             this.Amount = amount;
             this.Transmitter = transmitter;
-            this.Recipient = recipient;
+            this.Receiver = recipient;
         }
     }
 }

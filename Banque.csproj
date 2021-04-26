@@ -44,6 +44,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Account.cs" />
+    <Compile Include="Status.cs" />
+    <Compile Include="Person.cs" />
+    <Compile Include="Company.cs" />
+    <Compile Include="Client.cs" />
+    <Compile Include="RawClient.cs" />
+    <Compile Include="RawTransaction.cs" />
+    <Compile Include="RawAccount.cs" />
     <Compile Include="Transaction.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="Program.cs" />
