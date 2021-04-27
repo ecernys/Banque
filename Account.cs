@@ -8,12 +8,14 @@ namespace Banque
 {
     class Account
     {
-        public const int WITHDRAWAL_LIMIT = 2000;
+        public const double LIMIT_PER_TRANSACTIONS = 1000;
+        public const double LIMIT_PER_PERIOD = 2000;
         public readonly TimeSpan TRANSACTION_LIMIT_PERIOD = new TimeSpan(7, 0, 0, 0);
         public int TransactionLimit { get; set; }
         public int Id { get; private set; }
         public double Balance { get; private set; }
-        private int _withdrawalLimit { get; set; }
+        private double _limitPerPeriod { get; set; }
+        private double _limitPerTransaction { get; set; }
         public DateTime CreationDate { get; set; }
         public DateTime? ClosureDate { get; set; }
         public List<Transaction> Transactions { get; private set; }
@@ -28,7 +30,8 @@ namespace Banque
             this.TransactionLimit = transactionLimit;
             this.Balance = balance;
             this.ClosureDate = null;
-            this._withdrawalLimit = WITHDRAWAL_LIMIT;
+            this._limitPerPeriod = LIMIT_PER_PERIOD;
+            this._limitPerTransaction = LIMIT_PER_TRANSACTIONS;
             this.Transactions = new List<Transaction>();
         }
 
@@ -118,7 +121,8 @@ namespace Banque
         /// <returns>Bool if do not exceeds withdrawal limit</returns>
         private bool NotExceedMax(double amount, DateTime date)
         {
-            if (amount > _withdrawalLimit)
+            if (amount > _limitPerPeriod
+                || amount > _limitPerTransaction)
                 return false;
             double sum = 0;
             double lastTransSum = 0;
@@ -134,6 +138,7 @@ namespace Banque
                     lastTransSum += Transactions[i].Amount;
                 }
             }
+
             foreach (var transaction in Transactions)
             {
                 if ((transaction.Type == Transaction.TransactionType.Transfer
@@ -144,7 +149,14 @@ namespace Banque
                     sum += transaction.Amount;
                 }
             }
-            return sum + amount <= _withdrawalLimit;
+            if (sum + amount <= _limitPerPeriod
+                && lastTransSum + amount <= _limitPerTransaction)
+            {
+                return true;
+            }
+            else
+                return false;
+            
         }
 
         private void AddTransaction(Transaction transaction)

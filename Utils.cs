@@ -23,7 +23,6 @@ namespace Banque
         //Statistics
         int validTransactionCount = 0;
         double validTransactionsSum = 0;
-        Dictionary<int, double> fees = new Dictionary<int, double>();
 
         /// <summary>
         /// Method to read Clients from file
@@ -366,7 +365,6 @@ namespace Banque
                     rawTransaction.Status = Status.OK;
                     validTransactionCount++;
                     validTransactionsSum += amount;
-                    fees.Add(id, 0);
                 }
                 //Withdrawal
                 else if (receiver == 0 && transmitter != 0
@@ -377,7 +375,6 @@ namespace Banque
                     rawTransaction.Status = Status.OK;
                     validTransactionCount++;
                     validTransactionsSum += amount;
-                    fees.Add(id, 0);
                 }
                 // Transfer
                 else if (receiver != transmitter
@@ -403,6 +400,7 @@ namespace Banque
                     }
 
                     clients[accounts[transmitter].ClientId].Accounts[transmitter].Withdraw(transaction);
+                    clients[accounts[transmitter].ClientId].addFee(fee);
                     clients[accounts[receiver].ClientId].Accounts[receiver].Deposit(
                         new Transaction(
                             Transaction.TransactionType.Levy,
@@ -413,7 +411,6 @@ namespace Banque
                             transmitter));
                     rawTransaction.Status = Status.OK;
                     validTransactionCount++;
-                    fees.Add(id, fee);
 
                 }
                 else
@@ -475,9 +472,9 @@ namespace Banque
                 sw.WriteLine($"Montant total des réussites : {validTransactionsSum} euros");
                 sw.WriteLine("");
                 sw.WriteLine("Frais de gestions :");
-                foreach (var fee in fees)
+                foreach (var client in clients)
                 {
-                    sw.WriteLine($"{fee.Key} : {fee.Value} euros");
+                    sw.WriteLine($"{client.Key} : {client.Value.fees} euros");
                 }
             };
         }
