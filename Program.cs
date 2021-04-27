@@ -17,13 +17,13 @@ namespace Banque
 
             string path = Directory.GetCurrentDirectory();
             // Fichiers entrée
-            string mngrPath = path + @"\Gestionnaires_1.txt";
-            string acctPath = path + @"\Comptes_1.txt";
-            string trxnPath = path + @"\Transactions_1.txt";
+            string mngrPath = path + @"\Gestionnaires_6.txt";
+            string acctPath = path + @"\Comptes_6.txt";
+            string trxnPath = path + @"\Transactions_6.txt";
             // Fichiers sortie
-            string sttsAcctPath = path + @"\StatutTra_.txt";
-            string sttsTrxnPath = path + @"\StatutOpe_.txt";
-            string mtrlPath = path + @"\Metrologie_.txt";
+            string sttsAcctPath = path + @"\StatutOpe_6.txt"; 
+            string sttsTrxnPath = path + @"\StatutTra_6.txt";
+            string mtrlPath = path + @"\Metrologie_6.txt";
 
             if (args.Length > 0)
             {

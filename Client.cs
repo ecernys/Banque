@@ -9,12 +9,12 @@ namespace Banque
     abstract class Client
     {
         public int Id { get; private set; }
-        public int TransactionCount { get; set; }
+        public int TransactonLimit { get; set; }
         public Dictionary<int, Account> Accounts { get; private set; }
         public Client(int id, int transactionCount)
         {
             this.Id = id;
-            this.TransactionCount = transactionCount;
+            this.TransactonLimit = transactionCount;
             Accounts = new Dictionary<int, Account>();
         }
 

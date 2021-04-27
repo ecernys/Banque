@@ -10,6 +10,7 @@ namespace Banque
     {
         public const int WITHDRAWAL_LIMIT = 2000;
         public readonly TimeSpan TRANSACTION_LIMIT_PERIOD = new TimeSpan(7, 0, 0, 0);
+        public int TransactionLimit { get; set; }
         public int Id { get; private set; }
         public double Balance { get; private set; }
         private int _withdrawalLimit { get; set; }
@@ -19,11 +20,12 @@ namespace Banque
         public int ClientId { get; set; }
 
 
-        public Account(int id, DateTime creationDate, int clientId, double balance = 0)
+        public Account(int id, DateTime creationDate, int clientId, int transactionLimit, double balance = 0)
         {
             this.Id = id;
             this.CreationDate = creationDate;
             this.ClientId = clientId;
+            this.TransactionLimit = transactionLimit;
             this.Balance = balance;
             this.ClosureDate = null;
             this._withdrawalLimit = WITHDRAWAL_LIMIT;
@@ -39,15 +41,14 @@ namespace Banque
         /// <returns>Bool if succeeded </returns>
         public bool Deposit(Transaction transaction)
         {
-            if (transaction.Date >= CreationDate
-                && (ClosureDate == null || transaction.Date < ClosureDate)
-                && transaction.Amount > 0)
+            if (CheckDeposit(transaction))
             {
                 Balance += transaction.Amount;
                 AddTransaction(transaction);
                 return true;
             }
-            return false;
+            else
+                return false;
         }
 
         /// <summary>
@@ -77,21 +78,16 @@ namespace Banque
         /// <returns>Bool if succeeded</returns>
         public bool Withdraw(Transaction transaction)
         {
-            if (transaction.Date >= CreationDate
-                && (ClosureDate == null || transaction.Date < ClosureDate)
-                && transaction.Amount > 0)
+            if (CheckWithdrawal(transaction))
             {
-                if (this.Balance - transaction.Amount > 0
-                    && NotExceedMax(transaction.Amount, transaction.Date))
-                {
-                    this.Balance -= transaction.Amount;
-                    AddTransaction(transaction);
-                    return true;
-                }
+                this.Balance -= transaction.Amount;
+                AddTransaction(transaction);
+                return true;
             }
-            return false;
-        }        
-        
+            else
+                return false;
+        }
+
         /// <summary>
         /// Method to Check withdrawal transaction validity
         /// </summary>
@@ -105,7 +101,7 @@ namespace Banque
                 && (ClosureDate == null || transaction.Date < ClosureDate)
                 && transaction.Amount > 0)
             {
-                if (this.Balance - transaction.Amount > 0
+                if (this.Balance - transaction.Amount >= 0
                     && NotExceedMax(transaction.Amount, transaction.Date))
                 {
                     return true;
@@ -125,11 +121,24 @@ namespace Banque
             if (amount > _withdrawalLimit)
                 return false;
             double sum = 0;
+            double lastTransSum = 0;
+            int trCount = Transactions.Count;
+            int startFrom = 0;
+            if (trCount > TransactionLimit)
+                startFrom = trCount - TransactionLimit;
+            for (int i = startFrom; i < trCount; i++)
+            {
+                if (Transactions[i].Type == Transaction.TransactionType.Transfer
+                    || Transactions[i].Type == Transaction.TransactionType.Withdrawal)
+                {
+                    lastTransSum += Transactions[i].Amount;
+                }
+            }
             foreach (var transaction in Transactions)
             {
                 if ((transaction.Type == Transaction.TransactionType.Transfer
                     || transaction.Type == Transaction.TransactionType.Withdrawal)
-                    && transaction.Date >= (date - TRANSACTION_LIMIT_PERIOD)
+                    && transaction.Date > (date - TRANSACTION_LIMIT_PERIOD)
                     && transaction.Date <= date)
                 {
                     sum += transaction.Amount;

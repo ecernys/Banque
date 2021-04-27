@@ -20,14 +20,15 @@ namespace Banque
         Dictionary<int, Account> accounts = new Dictionary<int, Account>();
         Dictionary<int, Transaction> transactions = new Dictionary<int, Transaction>();
 
-        Dictionary<DateTime, object> operations = new Dictionary<DateTime, object>();
-
         //Statistics
         int validTransactionCount = 0;
         double validTransactionsSum = 0;
         Dictionary<int, double> fees = new Dictionary<int, double>();
 
-
+        /// <summary>
+        /// Method to read Clients from file
+        /// </summary>
+        /// <param name="clntPath">Path of Clients file</param>
         public void readClients(string clntPath)
         {
             using (StreamReader sr = new StreamReader(clntPath))
@@ -62,28 +63,9 @@ namespace Banque
         }
 
         /// <summary>
-        /// Method to write Status of Transactions to file
-        /// </summary>
-        /// <param name="sttsTrxnPath">
-        /// Path of output Status of transaction file
-        /// </param>
-        public void writeTransactionsStatus(string sttsTrxnPath)
-        {
-            using (StreamWriter sw = new StreamWriter(sttsTrxnPath))
-            {
-                foreach (var rawTransaction in rawTransactions)
-                {
-                    sw.WriteLine($"{rawTransaction.Id};{rawTransaction.Status}");
-                }
-            };
-        }
-
-        /// <summary>
         /// Method to read Accounts from file
         /// </summary>
-        /// <param name="acctPath">
-        /// Path of Accounts file 
-        /// </param>
+        /// <param name="acctPath">Path of Accounts file</param>
         public void readAccounts(string acctPath)
         {
             using (StreamReader sr = new StreamReader(acctPath))
@@ -188,47 +170,8 @@ namespace Banque
         }
 
         /// <summary>
-        /// Method to write Status of Accounts to file
+        /// Method to merge and process Operations and Transactions ordered by date
         /// </summary>
-        /// <param name="sttsAcctPath">
-        /// Path of output Status of operation file
-        /// </param>
-        public void writeOperationsStatus(string sttsAcctPath)
-        {
-            using (StreamWriter sw = new StreamWriter(sttsAcctPath))
-            {
-                foreach (var rawAccount in rawAccounts)
-                {
-                    sw.WriteLine($"{rawAccount.Id};{rawAccount.Status}");
-                }
-            };
-        }
-
-        /// <summary>
-        /// Method to write Account statistics
-        /// </summary>
-        /// <param name="mtrlPath">
-        /// Path of statistics output file
-        /// </param>
-        public void writeStatistics(string mtrlPath)
-        {
-            using (StreamWriter sw = new StreamWriter(mtrlPath))
-            {
-                sw.WriteLine("Statistiques :");
-                sw.WriteLine($"Nombre de comptes : {accounts.Count}");
-                sw.WriteLine($"Nombre de transactions : {rawTransactions.Count}");
-                sw.WriteLine($"Nombre de réussites : {validTransactionCount}");
-                sw.WriteLine($"Nombre d'échecs : {rawTransactions.Count - validTransactionCount}");
-                sw.WriteLine($"Montant total des réussites : {validTransactionsSum} euros");
-                sw.WriteLine("");
-                sw.WriteLine("Frais de gestions :");
-                foreach (var fee in fees)
-                {
-                    sw.WriteLine($"{fee.Key} : {fee.Value} euros");
-                }
-            };
-        }
-
         public void ProcessOperations()
         {
             DateTime temp;
@@ -290,11 +233,17 @@ namespace Banque
                     {
                         clients.Add(id, new Person(id, transactionCount));
                         rawClient.Status = Status.OK;
+#if DEBUG
+                        Console.WriteLine($"{id} Particulier {transactionCount}");
+#endif
                     }
                     else if (rawClient.Type == "Entreprise")
                     {
                         clients.Add(id, new Company(id, transactionCount));
                         rawClient.Status = Status.OK;
+#if DEBUG
+                        Console.WriteLine($"{id} Entreprise {transactionCount}");
+#endif
                     }
                     else
                         rawClient.Status = Status.KO;
@@ -334,7 +283,7 @@ namespace Banque
                         || (double.TryParse(rawAccount.Balance, out balance)
                             && balance >= 0))
                     {
-                        Account account = new Account(id, date, entry, balance);
+                        Account account = new Account(id, date, entry, clients[entry].TransactonLimit, balance);
                         clients[entry].AddAccount(account);
                         accounts.Add(account.Id, account);
                         rawAccount.Status = Status.OK;
@@ -365,6 +314,7 @@ namespace Banque
                 {
                     Account account = clients[entry].Accounts[id];
                     account.ClientId = exit;
+                    account.TransactionLimit = clients[exit].TransactonLimit;
                     clients[entry].Accounts.Remove(id);
                     clients[exit].Accounts.Add(id, account);
                     rawAccount.Status = Status.OK;
@@ -448,7 +398,7 @@ namespace Banque
                     if (clients[accounts[transmitter].ClientId].Id != clients[accounts[receiver].ClientId].Id
                         && clients[accounts[transmitter].ClientId].GetType() == typeof(Company))
                     {
-                        fee = ((Person)clients[accounts[transmitter].ClientId]).transactionFee;
+                        fee = ((Company)clients[accounts[transmitter].ClientId]).transactionFee;
                         amount -= fee;
                     }
 
@@ -473,5 +423,63 @@ namespace Banque
                 rawTransaction.Status = Status.KO;
         }
 
+        /// <summary>
+        /// Method to write Status of Accounts to file
+        /// </summary>
+        /// <param name="sttsAcctPath">
+        /// Path of output Status of operation file
+        /// </param>
+        public void writeOperationsStatus(string sttsAcctPath)
+        {
+            using (StreamWriter sw = new StreamWriter(sttsAcctPath))
+            {
+                foreach (var rawAccount in rawAccounts)
+                {
+                    sw.WriteLine($"{rawAccount.Id};{rawAccount.Status}");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Method to write Status of Transactions to file
+        /// </summary>
+        /// <param name="sttsTrxnPath">
+        /// Path of output Status of transaction file
+        /// </param>
+        public void writeTransactionsStatus(string sttsTrxnPath)
+        {
+            using (StreamWriter sw = new StreamWriter(sttsTrxnPath))
+            {
+                foreach (var rawTransaction in rawTransactions)
+                {
+                    sw.WriteLine($"{rawTransaction.Id};{rawTransaction.Status}");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Method to write Account statistics
+        /// </summary>
+        /// <param name="mtrlPath">
+        /// Path of statistics output file
+        /// </param>
+        public void writeStatistics(string mtrlPath)
+        {
+            using (StreamWriter sw = new StreamWriter(mtrlPath))
+            {
+                sw.WriteLine("Statistiques :");
+                sw.WriteLine($"Nombre de comptes : {accounts.Count}");
+                sw.WriteLine($"Nombre de transactions : {rawTransactions.Count}");
+                sw.WriteLine($"Nombre de réussites : {validTransactionCount}");
+                sw.WriteLine($"Nombre d'échecs : {rawTransactions.Count - validTransactionCount}");
+                sw.WriteLine($"Montant total des réussites : {validTransactionsSum} euros");
+                sw.WriteLine("");
+                sw.WriteLine("Frais de gestions :");
+                foreach (var fee in fees)
+                {
+                    sw.WriteLine($"{fee.Key} : {fee.Value} euros");
+                }
+            };
+        }
     }
 }
