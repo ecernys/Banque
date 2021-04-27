@@ -212,13 +212,13 @@ namespace Banque
         /// </param>
         public void writeStatistics(string mtrlPath)
         {
-            using (StreamWriter sw = new StreamWriter(mtrlPath, true))
+            using (StreamWriter sw = new StreamWriter(mtrlPath))
             {
                 sw.WriteLine("Statistiques :");
                 sw.WriteLine($"Nombre de comptes : {accounts.Count}");
                 sw.WriteLine($"Nombre de transactions : {rawTransactions.Count}");
                 sw.WriteLine($"Nombre de réussites : {validTransactionCount}");
-                sw.WriteLine($"Nombre d'échecs : {rawTransactions.Count - rawTransactions.Count}");
+                sw.WriteLine($"Nombre d'échecs : {rawTransactions.Count - validTransactionCount}");
                 sw.WriteLine($"Montant total des réussites : {validTransactionsSum} euros");
                 sw.WriteLine("");
                 sw.WriteLine("Frais de gestions :");
@@ -439,13 +439,13 @@ namespace Banque
                     double fee = 0;
                     validTransactionsSum += amount;
                     // if transaction is external deduct transaction fee
-                    if (accounts[transmitter].ClientId != accounts[receiver].ClientId
+                    if (clients[accounts[transmitter].ClientId].Id != clients[accounts[receiver].ClientId].Id
                         && clients[accounts[transmitter].ClientId].GetType() == typeof(Person))
                     {
                         fee = amount * ((Person)clients[accounts[transmitter].ClientId]).transactionFee;
                         amount -= fee;
                     }
-                    if (accounts[transmitter].ClientId != accounts[receiver].ClientId
+                    if (clients[accounts[transmitter].ClientId].Id != clients[accounts[receiver].ClientId].Id
                         && clients[accounts[transmitter].ClientId].GetType() == typeof(Company))
                     {
                         fee = ((Person)clients[accounts[transmitter].ClientId]).transactionFee;
